@@ -48,6 +48,23 @@ filtering:
   # made on another species' homologue of the human target. Raising this to 9
   # is therefore an ablation worth running -- it costs a third of the records
   # but removes measurements that were not made on the protein we embed.
+  # VERIFIED against ChEMBL 37's own `confidence_score_lookup` (K56), not a
+  # secondary source: 8 is "Homologous single protein target assigned", 9 is
+  # "Direct single protein target assigned". So a score-8 measurement may have
+  # been made on another species' homologue of the human protein we embed.
+  #
+  # AND THE THRESHOLD IS ALREADY EFFECTIVELY 9. ChEMBL computes
+  # `predicted_binding_domains` only for direct (score 9) assays: 0 of 340,341
+  # score-8 activities carry a domain mapping, against 51.9% of score-9 ones,
+  # in all five families. The binding-domain representation (K15) therefore
+  # imposed the stricter threshold as a side effect -- the homologous records
+  # were removed by the DOMAIN filter, not by this one. Raising this value to 9
+  # today costs exactly 0 pairs and 0 targets, measured on the final dataset.
+  #
+  # Left at 8 pending the user's decision (see K56). It matters for later, not
+  # now: if `fallback_to_full_sequence` is enabled or the scope widens to all
+  # human single-protein targets, the domain filter loosens and homologous
+  # records would start entering SILENTLY while this value stays 8.
   min_assay_confidence_score: 8   # ablation: 8 (homologous allowed) vs 9 (direct only)
   min_activities_per_target: 20   # below this a target cannot support a
                                   # per-target metric; counted in the drop table
@@ -251,11 +268,19 @@ models:
     regressor: "lightgbm"
 
   m1_frozen_lm:
+    # Revisions pinned 2026-11-15 (K37). Every loader passes these explicitly:
+    # without a revision, `from_pretrained` follows the branch head, so a Hub
+    # update would silently change every embedding and therefore every number
+    # downstream -- and the change would be invisible, because the code and the
+    # config would both still look correct. All three repositories were last
+    # modified in 2022-2023, so the pin costs nothing today and protects a
+    # re-run in a year.
     chem_model: "DeepChem/ChemBERTa-77M-MTR"
-    chem_revision: null            # pin the commit hash before the first run
+    chem_revision: "66b895cab8adebea0cb59a8effa66b2020f204ca"
     prot_model: "facebook/esm2_t33_650M_UR50D"
-    prot_revision: null            # pin the commit hash before the first run
-    prot_model_small: "facebook/esm2_t12_35M_UR50D"   # ablation 5
+    prot_revision: "08e4846e537177426273712802403f7ba8261b6c"
+    prot_model_small: "facebook/esm2_t12_35M_UR50D"   # ablation only
+    prot_model_small_revision: "6fbf070e65b0b7291e7bbcd451118c216cff79d8"
     pooling: "mean"                # ablation: mean | cls
     dtype: "float16"               # 6 GB VRAM budget
     batch_size_embedding: 4

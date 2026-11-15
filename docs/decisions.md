@@ -707,6 +707,76 @@ diye etiketliyordu; düzeltildi.
 `data/interim/leakage_audit.parquet`
 
 
+---
+
+## K56 — Güven skoru 8 vs 9: soru çözüldü, eşik fiilen zaten 9
+
+**Soru / Question:** Devir notu §2.3 ve v2 tasarımının açık soruları, mevcut
+`min_assay_confidence_score: 8` eşiğinin homolog atamaları içerip içermediğini
+yerel ChEMBL 37 kopyasında doğrulamayı istiyordu. Rev2'deki gerekçe "deneyin
+tek bir proteine atandığı" diye yazılmıştı; ikincil kaynaklar 9'un doğrudan,
+8'in homolog atama olduğunu söylüyordu.
+
+**ChEMBL'in kendi tanımları** (`confidence_score_lookup` tablosu, ikincil
+kaynak değil):
+
+| Skor | target_mapping | Açıklama |
+| --- | --- | --- |
+| 7 | Protein complex | Direct protein complex subunits assigned |
+| **8** | **Homologous protein** | **Homologous single protein target assigned** |
+| **9** | **Protein** | **Direct single protein target assigned** |
+
+İkincil kaynak doğruydu ve rev2'nin gerekçesi eksikti: 8 gerçekten tek bir
+proteine atama demek, ama atanan protein insan hedefinin **başka bir türdeki
+homoloğu** olabilir. Yani modele gömdüğümüz insan dizisiyle ölçümün yapıldığı
+protein aynı olmayabilir.
+
+**Süzülmüş aktivite düzeyinde dağılım:**
+
+| Skor | Aktivite | Hedef | Bileşik |
+| --- | --- | --- | --- |
+| 8 (homolog) | 340.341 (%31,5) | 843 | 167.720 |
+| 9 (doğrudan) | 739.699 (%68,5) | 1.050 | 375.976 |
+
+**Beklenmedik bulgu — eşik zaten 9.** Nihai veri setine etkisini ölçtüğümde
+eşiği 9'a çekmenin **sıfır** çift kaybettirdiği çıktı: 283.353 çiftin %100'ü,
+565 hedefin tamamı korunuyor. Sebebini aradım ve mekanizma şu:
+
+| Skor | Aktivite | Alan eşlemesi olan | Oran |
+| --- | --- | --- | --- |
+| 8 | 340.341 | **0** | **%0,0** |
+| 9 | 739.699 | 383.789 | %51,9 |
+
+**ChEMBL `predicted_binding_domains`'i yalnızca doğrudan (skor 9) atanmış
+deneyler için hesaplıyor.** Beş ailenin hepsinde skor-8 aktivitelerinin alan
+eşlemesi oranı tam olarak %0. Dolayısıyla K15'te alınan bağlanma alanı temsili
+kararı, farkında olmadan güven eşiğini de 9'a çekmiş: homolog kayıtların
+tamamı güven süzgeci tarafından değil, **alan süzgeci** tarafından elenmiş.
+
+Bu, K17'de kaydettiğim "güven süzgeci hiçbir şey düşürmüyor" bulgusunun daha
+derin sebebi. K17 doğruydu ama eksikti: süzgeç `target_type = SINGLE PROTEIN`
+kısıtı yüzünden değil, alan eşlemesi yüzünden etkisiz.
+
+**Öneri (karar kullanıcının):** `min_assay_confidence_score` **9'a çekilsin.**
+Gerekçe, bugün hiçbir şeyi değiştirmemesi değil — asıl gerekçe ileriye dönük:
+
+1. Mevcut davranış bir *kaza*; config 8 diyor, veri 9. Config'i 9 yapmak,
+   davranışı kasıtlı hale getirir ve yanlış okunmasını engeller.
+2. `fallback_to_full_sequence` ablasyonu açılırsa ya da v2'nin **Aşama 2**
+   kapsamına (tüm insan tek-protein hedefleri) geçilirse, alan süzgeci
+   gevşeyecek ve eşik 8 kaldığı sürece homolog kayıtlar **sessizce** veri
+   setine girecek. Ürün bir hedefe bağlanma tahmini dağıttığı için bu, kalite
+   beyanını fark edilmeden bozar.
+3. Maliyeti ölçüldü: bugün sıfır. Veri hattı yeniden koşturulmasını
+   gerektirmiyor.
+
+Eşik 8'de bırakılırsa gereken şey: homolog/doğrudan farkının tek tablo olarak
+raporlanması ve her kaydın `confidence_score` alanının veri setinde taşınması.
+
+**Nerede / Where:** `config/config.yaml` (`filtering.min_assay_confidence_score`),
+ölçüm script'leri oturum çalışma alanında; sayılar bu kayıtta.
+
+
 ## Açık sorular / Open questions
 
 - **Tez formatı.** Bölümün zorunlu şablonu henüz verilmedi. Geldiğinde K5
