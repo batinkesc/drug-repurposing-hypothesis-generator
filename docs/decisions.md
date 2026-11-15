@@ -787,12 +787,25 @@ O son sayı mekanizmanın bağımsız üçüncü doğrulaması: girdi 1.080.040'
 satırı 0 düşürüyor görünüyordu ve okuyucuya hiçbir şey söylemiyordu; şimdi
 homolog kayıtların açıkça elendiği görülüyor.
 
-**Kalan tutarsızlık (zararsız):** `compounds_standardised.parquet` eski
-çalıştırmadan 497.867 satır taşıyor, `compounds.parquet` ise artık 375.976.
-Birleştirme aktiviteler üzerinden yürüdüğü için fazlalık satırlar yok sayılıyor
-ve veri setinin aynı kaldığı ölçüldü. Dosyayı girdisiyle hizalamak için
-`03_standardise_molecules.py --force` gerekir (~67 dakika) ve hiçbir aşağı akış
-sayısını değiştirmez.
+**Ara dosya hizalaması — yapıldı.** Yeniden koşturmanın ardından
+`compounds_standardised.parquet` eski çalıştırmadan 497.867 satır taşıyordu,
+`compounds.parquet` ise 375.976'ya inmişti. Birleştirme aktiviteler üzerinden
+yürüdüğü için fazlalık zararsızdı, ama dosya girdisiyle uyuşmuyordu;
+`03_standardise_molecules.py --force` ile yeniden üretildi (48,7 dakika,
+15 işlemci):
+
+| | Eşik 8 (önce) | Eşik 9 (sonra) |
+| --- | --- | --- |
+| Girdi bileşiği | 497.867 | 375.976 |
+| Korunan | 493.803 | 372.406 |
+| Benzersiz molekül | 487.220 | 368.307 |
+| `too_large` | 4.000 | 3.522 |
+
+Veri seti bu üçüncü koşudan sonra da **birebir aynı** (aynı sıra hash'i,
+`equals()` True) ve yeniden üretilen `04_dataset_profile.md` ile
+`05_drop_table_stage2.md` **bayt düzeyinde** değişmedi — yani bu adım izlenen
+hiçbir dosyayı değiştirmedi, sadece ara dosyaları girdileriyle hizaladı.
+Boru hattı artık baştan sona tek bir eşikle tutarlı.
 
 ### Özgün öneri ve gerekçesi
 
