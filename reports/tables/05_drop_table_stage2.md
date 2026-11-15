@@ -7,8 +7,8 @@ Rows removed after extraction. Stage 1 is in `03_drop_table.md`.
 
 | # | Adım / Stage | Kalan / Remaining | Düşen / Removed |
 | --- | --- | --- | --- |
-| 1 | Standardizasyonu geçen bileşiklere ait kayıtlar<br>*Records whose compound passed standardisation* | 1,072,160 | 7,880 |
-| 2 | Bağlanma alanı eşlemesi olan kayıtlar<br>*Records with an unambiguous binding-domain mapping* | 360,616 | 711,544 |
+| 1 | Standardizasyonu geçen bileşiklere ait kayıtlar<br>*Records whose compound passed standardisation* | 732,934 | 6,765 |
+| 2 | Bağlanma alanı eşlemesi olan kayıtlar<br>*Records with an unambiguous binding-domain mapping* | 360,616 | 372,318 |
 | 3 | Alan dizisi çıkarılabilir ve 50-1022 aa arasında<br>*Domain sub-sequence extractable and 50-1022 aa* | 360,616 | 0 |
 | 4 | Hedef–bileşik çifti bazında medyan toplama<br>*Collapsed to one row per target-compound pair (median)* | 284,771 | 75,845 |
 | 5 | Hedef başına en az 20 ölçüm<br>*At least 20 measurements per target* | 283,353 | 1,418 |

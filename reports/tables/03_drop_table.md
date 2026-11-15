@@ -10,15 +10,15 @@ every filter above it.
 | # | Adım / Stage | Kalan / Remaining | Düşen / Removed |
 | --- | --- | --- | --- |
 | 1 | Aile sınıfı eşleşen tüm biyoaktivite kayıtları<br>*All bioactivity records on a family-matched target* | 3,977,865 | — |
-| 2 | Deney güven skoru >= eşik (tek proteine atanmış deney)<br>*Assay confidence score >= threshold (single-protein assignment)* | 3,977,865 | 0 |
-| 3 | Ölçüm türü Ki / Kd / IC50<br>*Measurement type is Ki / Kd / IC50* | 1,643,368 | 2,334,497 |
-| 4 | Standart birim nM<br>*Standard unit is nM* | 1,502,340 | 141,028 |
-| 5 | İlişki işareti kesin (=), sansürlü kayıtlar dışarıda<br>*Exact relation (=); censored records excluded* | 1,095,200 | 407,140 |
-| 6 | pChEMBL değeri mevcut<br>*A pChEMBL value is present* | 1,081,431 | 13,769 |
-| 7 | Veri doğrulama bayrağı yok<br>*No data-validity comment* | 1,081,125 | 306 |
-| 8 | pChEMBL makul aralıkta<br>*pChEMBL within a plausible range* | 1,081,069 | 56 |
-| 9 | Bileşiğin SMILES kaydı var<br>*The compound has a SMILES record* | 1,080,040 | 1,029 |
-| 10 | Hedefin dizi kaydı var<br>*The target has a sequence record* | 1,080,040 | 0 |
+| 2 | Deney güven skoru >= eşik (tek proteine atanmış deney)<br>*Assay confidence score >= threshold (single-protein assignment)* | 2,654,404 | 1,323,461 |
+| 3 | Ölçüm türü Ki / Kd / IC50<br>*Measurement type is Ki / Kd / IC50* | 1,026,569 | 1,627,835 |
+| 4 | Standart birim nM<br>*Standard unit is nM* | 997,432 | 29,137 |
+| 5 | İlişki işareti kesin (=), sansürlü kayıtlar dışarıda<br>*Exact relation (=); censored records excluded* | 749,081 | 248,351 |
+| 6 | pChEMBL değeri mevcut<br>*A pChEMBL value is present* | 740,589 | 8,492 |
+| 7 | Veri doğrulama bayrağı yok<br>*No data-validity comment* | 740,283 | 306 |
+| 8 | pChEMBL makul aralıkta<br>*pChEMBL within a plausible range* | 740,254 | 29 |
+| 9 | Bileşiğin SMILES kaydı var<br>*The compound has a SMILES record* | 739,699 | 555 |
+| 10 | Hedefin dizi kaydı var<br>*The target has a sequence record* | 739,699 | 0 |
 
 - Başlangıç / Start: **3,977,865**
-- Son / Final: **1,080,040** (%27.2)
+- Son / Final: **739,699** (%18.6)

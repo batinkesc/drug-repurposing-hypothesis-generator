@@ -61,11 +61,13 @@ filtering:
   # were removed by the DOMAIN filter, not by this one. Raising this value to 9
   # today costs exactly 0 pairs and 0 targets, measured on the final dataset.
   #
-  # Left at 8 pending the user's decision (see K56). It matters for later, not
-  # now: if `fallback_to_full_sequence` is enabled or the scope widens to all
-  # human single-protein targets, the domain filter loosens and homologous
-  # records would start entering SILENTLY while this value stays 8.
-  min_assay_confidence_score: 8   # ablation: 8 (homologous allowed) vs 9 (direct only)
+  # DECIDED 2026-11-15: raised to 9 (K56). It changes nothing in the current
+  # dataset -- verified, 0 pairs and 0 targets -- and that is the point: the
+  # value now states the behaviour instead of leaving it to a side effect of
+  # the domain filter. It matters for later: if `fallback_to_full_sequence` is
+  # enabled or the scope widens to all human single-protein targets, the domain
+  # filter loosens, and at 8 homologous records would start entering SILENTLY.
+  min_assay_confidence_score: 9   # ablation: 8 (homologous allowed) vs 9 (direct only)
   min_activities_per_target: 20   # below this a target cannot support a
                                   # per-target metric; counted in the drop table
 

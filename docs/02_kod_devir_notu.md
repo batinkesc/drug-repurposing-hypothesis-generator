@@ -208,8 +208,10 @@ Mevcut 86 testin yanına eklenirler.
 
 ## 8. Karara bağlanmadan ilgili kod yazılmayacak açık sorular
 
-- [x] Güven skoru eşiği 8 mi 9 mu — **ölçüldü, bkz. K56**; politika kararı
-      kullanıcıda
+- [x] ~~Güven skoru eşiği 8 mi 9 mu~~ — **kapandı (K56): 9'a çekildi.** Veri
+      hattı yeniden koşturuldu; veri seti birebir aynı kaldı, 65 bölme dosyası
+      ve kaçak denetimi geçerli. `03_drop_table.md` ve
+      `05_drop_table_stage2.md` yeniden üretildi
 - [ ] Ölçüm envanteri: Ki/Kd ile IC50 aynı model hedefinde mi kalıyor (envanter
       deneysel heterojenliği de ölçmeli — K55)
 - [ ] RT kesim yılı, ve tekilleştirme öncesi kayıtlardan kurulan testte kaç

@@ -757,7 +757,46 @@ Bu, K17'de kaydettiğim "güven süzgeci hiçbir şey düşürmüyor" bulgusunun
 derin sebebi. K17 doğruydu ama eksikti: süzgeç `target_type = SINGLE PROTEIN`
 kısıtı yüzünden değil, alan eşlemesi yüzünden etkisiz.
 
-**Öneri (karar kullanıcının):** `min_assay_confidence_score` **9'a çekilsin.**
+**KARAR (15 Kasım 2026): eşik 9'a çekildi.** Aşağıdaki öneri kabul edildi ve
+`config/config.yaml` güncellendi; veri hattı yeniden koşturuldu.
+
+### Yeniden koşturmanın sonucu
+
+Nihai veri seti **birebir aynı** kaldı — bu sadece satır sayısı eşitliği değil,
+`DataFrame.equals()` düzeyinde aynılık ve aynı satır sırası (sıra hash'i
+`600a5799642cbfa0532d6f33`, öncesi ve sonrası). Bu kontrol zorunluydu: 65 bölme
+dosyası veri setine **satır indeksiyle** atıf yapıyor, dolayısıyla satır sırası
+değişseydi bütün bölmeler sessizce başka çiftlere işaret ediyor olacaktı.
+
+Sonuç olarak **yeniden üretilmesi gereken hiçbir aşağı akış çıktısı yok**:
+65 bölme dosyası, `06_splits.md` ve `07_leakage_audit.md` geçerli;
+`04_dataset_profile.md` bit düzeyinde değişmedi.
+
+Değişen iki tez tablosu:
+
+| Tablo | Ne değişti |
+| --- | --- |
+| `03_drop_table.md` | Güven süzgeci artık **1.323.461** kayıt düşürüyor (önce 0). Son kalan 1.080.040 → **739.699**; başlangıcın %27,2'si değil **%18,6'sı** |
+| `05_drop_table_stage2.md` | İlk iki satır girdi sayısına göre kaydı; "alan eşlemesi olan kayıtlar" satırı yine **360.616** |
+
+O son sayı mekanizmanın bağımsız üçüncü doğrulaması: girdi 1.080.040'tan
+739.699'a inerken alan eşlemesi olan kayıt sayısı değişmedi, çünkü düşen
+340.341 kaydın hiçbirinde alan eşlemesi yoktu.
+
+**Yan kazanç:** düşürme tablosu artık daha bilgilendirici. Önceki hâlinde güven
+satırı 0 düşürüyor görünüyordu ve okuyucuya hiçbir şey söylemiyordu; şimdi
+homolog kayıtların açıkça elendiği görülüyor.
+
+**Kalan tutarsızlık (zararsız):** `compounds_standardised.parquet` eski
+çalıştırmadan 497.867 satır taşıyor, `compounds.parquet` ise artık 375.976.
+Birleştirme aktiviteler üzerinden yürüdüğü için fazlalık satırlar yok sayılıyor
+ve veri setinin aynı kaldığı ölçüldü. Dosyayı girdisiyle hizalamak için
+`03_standardise_molecules.py --force` gerekir (~67 dakika) ve hiçbir aşağı akış
+sayısını değiştirmez.
+
+### Özgün öneri ve gerekçesi
+
+`min_assay_confidence_score` **9'a çekilsin.**
 Gerekçe, bugün hiçbir şeyi değiştirmemesi değil — asıl gerekçe ileriye dönük:
 
 1. Mevcut davranış bir *kaza*; config 8 diyor, veri 9. Config'i 9 yapmak,
