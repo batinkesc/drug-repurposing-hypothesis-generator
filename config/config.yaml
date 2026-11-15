@@ -1,0 +1,316 @@
+# Central configuration for the cross-family DTI study.
+#
+# Every threshold that shapes a result lives here, with the reason next to it.
+# Nothing in src/ hard-codes a cutoff. Two reasons: the thesis has to state
+# these numbers, and several of them are ablation parameters.
+
+project:
+  name: "cross-family-dti"
+  random_seeds: [0, 1, 2, 3, 4]   # every configuration is repeated; we report
+                                  # mean and spread, never a single run
+  report_languages: ["tr", "en"]  # tables and logs are emitted in both
+
+paths:
+  chembl_sqlite: "data/raw/chembl/chembl.db"
+  uniprot_fasta: "data/raw/uniprot/human_targets.fasta"
+  interim: "data/interim"
+  processed: "data/processed"
+  embeddings: "data/embeddings"
+  splits: "data/splits"
+  tables: "reports/tables"
+  figures: "reports/figures"
+  logs: "reports/logs"
+
+tools:
+  # On Windows the bioconda mmseqs2 package is unavailable; point this at the
+  # official mmseqs-win64 binary. See docs/setup_notes.md.
+  mmseqs_bin: "mmseqs"
+
+# ---------------------------------------------------------------------------
+# Stage 2 -- activity filtering
+# ---------------------------------------------------------------------------
+filtering:
+  target_type: "SINGLE PROTEIN"   # multi-protein complexes cannot be mapped to
+                                  # one sequence, so they cannot be an input
+  organism: "Homo sapiens"
+  assay_types: ["Ki", "Kd", "IC50"]
+  standard_units: "nM"
+  standard_relation: "="          # censored records (greater-than / less-than)
+                                  # are excluded: a censored value is not a
+                                  # regression label
+  drop_data_validity_flagged: true
+  # MEASURED: with target_type = SINGLE PROTEIN this filter removes NOTHING --
+  # every assay on a family-matched human single-protein target already scores
+  # 8 or 9 (1,323,461 at 8 and 2,654,404 at 9 in ChEMBL 37). The filter is kept
+  # because it is not redundant at a higher threshold, and that threshold is a
+  # real quality question: ChEMBL defines 9 as a DIRECT single-protein
+  # assignment and 8 as a HOMOLOGOUS one, i.e. the measurement may have been
+  # made on another species' homologue of the human target. Raising this to 9
+  # is therefore an ablation worth running -- it costs a third of the records
+  # but removes measurements that were not made on the protein we embed.
+  min_assay_confidence_score: 8   # ablation: 8 (homologous allowed) vs 9 (direct only)
+  min_activities_per_target: 20   # below this a target cannot support a
+                                  # per-target metric; counted in the drop table
+
+# ---------------------------------------------------------------------------
+# Stage 3 -- affinity normalisation
+# ---------------------------------------------------------------------------
+normalisation:
+  # ChEMBL already ships `pchembl_value`; we use it and verify it against our
+  # own conversion rather than silently recomputing.
+  use_chembl_pchembl: true
+  verify_tolerance: 0.01
+  aggregate: "median"             # multiple measurements of the same pair
+  # If replicate measurements of one target-compound pair spread more than
+  # this, the pair is flagged. Ablation 4 drops flagged pairs entirely.
+  inconsistency_log_units: 1.0
+  pchembl_range: [3.0, 12.0]      # outside this range values are implausible
+
+# ---------------------------------------------------------------------------
+# Stage 4 -- molecule standardisation
+# ---------------------------------------------------------------------------
+molecule:
+  # Order matters: strip salts, neutralise charge, pick a canonical tautomer,
+  # THEN write canonical SMILES. Deduplication keys on that final string, so
+  # the sequence of operations is part of the reproducibility contract.
+  strip_salts: true
+  neutralise_charge: true
+  # MEASURED: the tautomer step costs 37.5 ms/molecule against 5.0 ms without
+  # it (~2 hours vs ~17 minutes for 200k compounds), and it changes the
+  # canonical SMILES of 19% of molecules. It cannot be skipped -- those 19%
+  # would otherwise survive as two records of one compound and could land on
+  # both sides of the R4b split. The cost is paid once and parallelised across
+  # cores; see `n_workers`.
+  canonical_tautomer: true        # RDKit MolStandardize.TautomerEnumerator
+  # Standardisation is per-molecule independent, so parallelising it changes
+  # nothing about the result. null means "all cores but one".
+  n_workers: null
+  max_heavy_atoms: 100            # drop peptide-like outliers that ChemBERTa-2
+                                  # was never pretrained on
+  min_heavy_atoms: 6
+
+# ---------------------------------------------------------------------------
+# Stage 5 -- protein representation
+# ---------------------------------------------------------------------------
+protein:
+  # Primary representation is the predicted binding domain, not the full
+  # sequence. Reason: families differ wildly in length (kinase catalytic domain
+  # ~300 aa vs voltage-gated ion channels above 2000 aa), so truncating at the
+  # ESM-2 limit would hit the very families we want to compare at different
+  # rates -- a confounder for the main question, not just an inconvenience.
+  # MEASURED, not assumed (scripts/01b_representation_decision.py, ChEMBL 37).
+  # Both paths were compared in the same unit -- the share of each family's
+  # activities affected:
+  #
+  #   Path A, full sequence truncated: 39.0% of kinase and 43.9% of ion-channel
+  #     measurements sit on a target longer than the limit, against 1.3% of
+  #     GPCR and 0.0% of nuclear receptor. Spread: 43.9 points.
+  #   Path B, binding domain: keeps 23.6% (kinase) to 54.4% (GPCR) of the
+  #     measurements. Spread: 30.8 points. Mapped domains run 178-265 aa at the
+  #     median, 586 aa at the longest -- NONE is over the limit, so truncation
+  #     disappears entirely.
+  #
+  # Path B wins on both counts, and the kinds of damage are not equivalent:
+  # truncation is systematic information loss (the protein is seen in part, at
+  # family-dependent rates) while limited coverage is sample loss (fewer
+  # measurements, those that remain intact). Sample loss costs statistical
+  # power; systematic loss creates bias -- and bias is fatal here because the
+  # comparison being made IS across families. Path B also leaves plenty:
+  # ~415k activities across the five families.
+  representation: "binding_domain"   # binding_domain | full_sequence
+  esm_max_residues: 1022             # ESM-2 limit (1024 tokens incl. BOS/EOS)
+  min_residues: 50
+  # Deliberately OFF for the primary representation. Falling back to a
+  # truncated full sequence for unmapped targets would mix the two
+  # representations in family-dependent proportions -- combining both
+  # confounders instead of choosing one. The primary representation is pure
+  # domain; the fallback is a separate ablation.
+  fallback_to_full_sequence: false
+  # An activity whose binding site cannot be placed on the sequence
+  # unambiguously is dropped rather than silently assigned to one candidate.
+  # MEASURED: this covers two cases, and only the second actually occurs in
+  # ChEMBL 37 for these families -- 0 activities map to several domain
+  # FAMILIES, while 18,553 map to several COPIES of one family within the same
+  # protein (four Ion_trans repeats in a voltage-gated channel, two kinase
+  # domains in a JAK). ChEMBL cannot resolve the second case at all:
+  # `component_domains` stores one row per copy with its own boundaries, but
+  # `site_components` references only the domain id, with no position.
+  # The cost is family-dependent and it falls on the thinnest family: 20.9% of
+  # ion-channel activities (50 -> 35 targets), 7.0% kinase, 6.3% protease,
+  # 0.5% GPCR, 0.0% nuclear receptor. Paid anyway, because picking one copy
+  # would feed the model a quarter of a channel's pore while giving nuclear
+  # receptors their whole domain -- systematic, family-dependent information
+  # loss in the exact comparison this study makes.
+  multi_domain_policy: "drop_ambiguous"   # drop_ambiguous | concatenate_copies
+  # Ablation 6: represent a repeated domain by concatenating its copies in
+  # sequence order, so a channel is the whole set of repeats. Biologically the
+  # better representation, but the concatenation runs 1,050-1,161 aa for 34%
+  # of the affected activities -- back over `esm_max_residues`, reintroducing
+  # truncation for ion channels specifically. Hence an ablation, not primary.
+  concatenate_copies_ablation: true
+
+# ---------------------------------------------------------------------------
+# Split regimes
+# ---------------------------------------------------------------------------
+splits:
+  test_fraction: 0.15
+  val_fraction: 0.15              # always carved out of training data; in R4
+                                  # validation comes from the TRAINING families
+                                  # only -- a held-out-family validation set
+                                  # would leak that family into model selection
+
+  r2_compound:
+    fingerprint: "ECFP4"
+    radius: 2
+    n_bits: 2048
+    # Butina sphere exclusion, NOT the single linkage used for targets, and the
+    # asymmetry is deliberate. At a 0.4 Tanimoto cutoff the neighbourhood graph
+    # over 190,339 drug-like compounds is dense enough that connected
+    # components collapse into one giant component covering most of chemical
+    # space, leaving no split at all. Sphere exclusion keeps clusters compact
+    # but does NOT bound similarity between compounds in DIFFERENT clusters.
+    # So R2 guarantees only "from a cluster no training compound came from",
+    # which is weaker than R3's guarantee. That is why the leakage audit
+    # measures maximum train-test Tanimoto for every regime rather than
+    # inferring it from the construction, and why R4b adds an explicit
+    # post-split filter.
+    clustering: "butina"
+    tanimoto_cutoff: 0.4          # ablation parameter
+
+  r3_target:
+    # Exact Smith-Waterman over all 159,330 target pairs, not MMseqs2. At 565
+    # targets the prefilter MMseqs2 exists to provide saves nothing, while its
+    # recall is a heuristic that matters precisely at this cutoff: a missed
+    # pair is a test target left similar to a training target, which is the
+    # leakage R3 exists to prevent. See K22 in docs/decisions.md.
+    method: "exact_smith_waterman"   # ablation: compare against mmseqs2
+    scoring: "blastp"                # BLOSUM62, gap open -12, extend -1
+    sequence_identity: 0.40       # ablation: 0.30 / 0.40 / 0.50
+    # Identity is "identical residues / length of the shorter domain", NOT
+    # identity over the local alignment. MEASURED: the local-alignment version
+    # reports a 3%-coverage motif match as 70-100% identity, which made the
+    # first leakage audit return a maximum of 1.000 for every regime --
+    # including R3, where no target is on both sides at all. The artefact was
+    # in the metric, not the split.
+    identity_definition: "identical_over_shorter_domain"
+    # Kept for the ablation that clusters on local-alignment identity plus this
+    # coverage floor (206 groups instead of 183). The primary definition needs
+    # no coverage threshold: a ten-residue motif cannot account for 40% of a
+    # 250-residue domain, so the protection is structural. Clustering on one
+    # definition while auditing with the other was tried and rejected -- it
+    # left 10.2% of R3 test targets above the cutoff, which is two definitions
+    # disagreeing rather than a leak.
+    coverage: 0.80
+    # Identity is computed on the DOMAIN sequence, which is what the model is
+    # given. Two proteins can differ over their full length while sharing a
+    # near-identical catalytic domain; clustering on full sequences would call
+    # them distinct targets and then hand the model the same input on both
+    # sides of the split.
+    sequence_unit: "domain"
+    # Single linkage, deliberately: R3 requires that no test target sit above
+    # the cutoff from ANY training target, and connected components of the
+    # "above cutoff" graph is the only grouping that guarantees it. Chaining is
+    # the usual objection, but with 565 targets the groups stay inspectable.
+    linkage: "single"
+
+  r4_family:
+    mode: "leave_one_family_out"
+    # R4b: the held-out family's test compounds must also be chemically new.
+    # Butina separates cluster centroids, not every cross-cluster pair, so an
+    # explicit post-split filter is required.
+    r4b_tanimoto_cutoff: 0.4
+    r4b_post_split_filter: true
+    # Primary reported numbers for R4b, not supporting statistics: they are
+    # how we measure how strict the test actually was.
+    r4b_report_max_train_test_similarity: true
+    r4b_report_n_removed: true
+    # If fewer than this many records survive the filter, R4b is NOT scored for
+    # that family -- only the surviving count is reported. Fixed in advance so
+    # the threshold is not chosen after seeing the data.
+    r4b_min_test_records: 200
+
+leakage_audit:
+  # Reported for every regime. No score is interpretable without these.
+  report_identical_molecules: true
+  report_max_tanimoto: true
+  report_max_sequence_identity: true
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
+models:
+  baselines: ["B1_target_mean", "B2_ligand_only", "B3_protein_only"]
+  # Each baseline is refitted per regime using only that regime's training
+  # data. Computing B1 over the full dataset and reusing it in the
+  # out-of-family regime would be leakage.
+
+  m0_classical:
+    molecule_features: "ECFP4"
+    protein_features: ["aa_composition", "kmer_counts"]
+    kmer_k: 3
+    regressor: "lightgbm"
+
+  m1_frozen_lm:
+    chem_model: "DeepChem/ChemBERTa-77M-MTR"
+    chem_revision: null            # pin the commit hash before the first run
+    prot_model: "facebook/esm2_t33_650M_UR50D"
+    prot_revision: null            # pin the commit hash before the first run
+    prot_model_small: "facebook/esm2_t12_35M_UR50D"   # ablation 5
+    pooling: "mean"                # ablation: mean | cls
+    dtype: "float16"               # 6 GB VRAM budget
+    batch_size_embedding: 4
+    head:
+      combine: "concat"            # ablation: concat | hadamard | both
+      hidden_sizes: [512, 256]
+      dropout: 0.2
+      lr: 1.0e-3
+      epochs: 100
+      early_stopping_patience: 10
+
+  m2_partial_finetune:
+    unfreeze_chem_last_n_layers: 2
+    freeze_protein: true           # ESM-2 fine-tuning is impractical at 6 GB
+    lr_backbone: 1.0e-5
+    lr_head: 1.0e-3
+
+training:
+  loss: "mse"                      # on the pChEMBL scale
+  # The test set is opened exactly once, when every model and regime is ready.
+  # Written down in advance on purpose.
+  test_set_locked: true
+
+# ---------------------------------------------------------------------------
+# Evaluation
+# ---------------------------------------------------------------------------
+evaluation:
+  primary_metrics: ["rmse", "pearson"]
+  secondary_metrics: ["spearman", "ci"]
+  per_target_breakdown: true       # an aggregate score can hide behind a few
+                                   # data-rich targets
+
+  # Families differ in their pChEMBL distribution, so transferring to a
+  # held-out family produces a systematic offset: RMSE explodes while the
+  # ranking may survive. Raw RMSE alone would call that "transfer failed".
+  # These three variants separate ranking transfer from scale transfer.
+  r4_rmse_variants: ["raw", "mean_shifted", "linear_calibrated"]
+
+  diagnostics:
+    shuffle_control:
+      # Two variants. Global shuffling is too easy to pass: a model that only
+      # reads the family would still lose accuracy. Within-family shuffling is
+      # the real test of whether the protein tower reads the protein.
+      variants: ["global", "within_family"]
+    selectivity_test:
+      log_unit_thresholds: [1.5, 2.0, 3.0]   # sensitivity to the cutoff is
+                                             # itself a reported result
+      require_same_assay_type: true
+      match_assay_conditions_when_possible: true
+    target_prior_bias: true
+
+  retrieval:
+    # Held-out known drug-target pairs for approved drugs (ChEMBL clinical
+    # phase), scored against a candidate pool whose composition is stated
+    # explicitly -- the pool determines these metrics.
+    metrics: ["enrichment_top1pct", "mrr", "ndcg"]
+    ndcg_k: [10, 50, 100]
+    compare_against: ["random", "M0"]

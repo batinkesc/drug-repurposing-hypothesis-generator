@@ -1,0 +1,18 @@
+# Tooling configuration only. The project is run as scripts against `src/`,
+# not installed as a package, so there is no [project] table here -- pytest's
+# `pythonpath` is enough to make `from dti import ...` work in tests.
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = [
+    "error::DeprecationWarning:dti.*",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

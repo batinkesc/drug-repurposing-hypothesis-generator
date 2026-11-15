@@ -1,0 +1,115 @@
+# The five protein families in scope.
+#
+# Design rule (non-negotiable): the family label is NEVER a model input. It is
+# used only to build evaluation splits. Feeding it as a feature would turn the
+# task into family classification instead of interaction prediction.
+#
+# HOW THE MAPPING WORKS (verified against ChEMBL 37, not assumed)
+# ---------------------------------------------------------------
+# ChEMBL stores the protein class hierarchy as a `parent_id` chain plus a
+# flattened `protein_class_desc` string. Two properties of that string decide
+# the mapping below, and both were measured with scripts/01_inspect_chembl.py:
+#
+#   1. Levels are separated by TWO SPACES, e.g. 'enzyme  kinase  protein kinase'.
+#   2. The path is built from each class's `short_name`, NOT its `pref_name`.
+#      So Family A GPCRs appear as 'membrane receptor  7tm1', not as
+#      '...  family a g protein-coupled receptor'.
+#
+# A target is assigned by prefix-matching the lowercased `protein_class_desc`.
+# Matching the LEVEL-1 name alone is wrong: 'enzyme%' pulls in every enzyme, so
+# kinases and proteases come back with identical counts. Matching a level-2
+# `pref_name` is also wrong: targets are attached to the most specific class
+# they belong to, so the level-2 rows themselves are nearly empty (ChEMBL 37
+# attaches 2 human targets directly to 'Kinase' and 0 to 'Protease', while the
+# kinase and protease SUBTREES hold 446 and 216).
+#
+# Counts obtained with the prefixes below (ChEMBL 37, human single-protein
+# targets; activities are Ki/Kd/IC50, nM, exact relation, confidence >= 8,
+# unflagged, with a pChEMBL value):
+#
+#   kinase            446 targets   554,976 activities   202,248 compounds
+#   gpcr              362 targets   298,071 activities   144,910 compounds
+#   protease          216 targets   146,441 activities    77,032 compounds
+#   nuclear_receptor   47 targets    50,438 activities    27,780 compounds
+#   ion_channel       188 targets    86,774 activities    54,028 compounds
+#   ------------------------------------------------------------------------
+#   total           1,259 targets  1,136,700 activities
+#
+# These are sanity-checkable: 47 nuclear receptors matches the ~48 the
+# literature describes for human. That agreement is the reason to trust the
+# prefixes rather than the earlier l1/l2 guess.
+#
+# Overlap was measured across all ten family pairs: ZERO. Every matched target
+# belongs to exactly one family, so `ambiguous_policy` below currently drops
+# nothing. This matters more than it looks -- it is the precondition for R4
+# meaning anything. If a target counted as both kinase and protease, holding
+# out the protease family would leave that target's records in training.
+
+families:
+  kinase:
+    name_tr: "Kinazlar"
+    name_en: "Kinases"
+    # 'enzyme  kinase  protein kinase' and the tyrosine/serine-threonine
+    # subtrees below it.
+    class_path_prefixes:
+      - "enzyme  kinase"
+    role: "primary_training"          # data-richest family
+    example_drug: "imatinib"
+
+  gpcr:
+    name_tr: "GPCR'ler"
+    name_en: "G protein-coupled receptors"
+    # Covers 7TM1/7TM2/7TM3 (families A, B, C), 7TMFZ (Frizzled) and
+    # 7TMTAS2R (taste). Deliberately excludes 'Toll-like and Il-1', which sits
+    # under the same level-1 class but is not a GPCR.
+    class_path_prefixes:
+      - "membrane receptor  7tm"
+    role: "transfer_target"
+    example_drug: "propranolol"
+
+  protease:
+    name_tr: "Proteazlar"
+    name_en: "Proteases"
+    # Proteases sit under Hydrolase in the pref_name tree, but the flattened
+    # path is 'enzyme  protease', which is what we match.
+    class_path_prefixes:
+      - "enzyme  protease"
+    role: "transfer_target"
+    example_drug: "ritonavir"
+
+  nuclear_receptor:
+    name_tr: "Nükleer reseptörler"
+    name_en: "Nuclear receptors"
+    class_path_prefixes:
+      - "transcription factor  nuclear receptor"
+    role: "hard_transfer_target"
+    example_drug: "tamoksifen / tamoxifen"
+
+  ion_channel:
+    name_tr: "İyon kanalları"
+    name_en: "Ion channels"
+    # Whole subtree: 'vgc' (voltage-gated), 'lgic' (ligand-gated) and the
+    # auxiliary-subunit families. The auxiliary subunits are not pores
+    # themselves; whether they belong here is revisited at the stage-1
+    # checkpoint, when per-target activity counts are known.
+    class_path_prefixes:
+      - "ion channel"
+    role: "hardest_transfer_target"
+    example_drug: "amlodipin / amlodipine"
+
+# A target matching more than one family's prefixes is ambiguous and dropped,
+# counted in the drop table. Assignment must come from one source and be
+# single-valued, otherwise a family-held-out split does not actually hold the
+# family out. Overlap between these five is measured in the inventory report.
+ambiguous_policy: "drop"
+
+# First-round scope. The design document's own recommendation: start with the
+# three data-rich families and widen only if the stage-1 data profile supports
+# it. Given the counts above, all five clear any reasonable threshold, so the
+# full set stays active -- this list is the decision point if that changes.
+active_families:
+  - kinase
+  - gpcr
+  - protease
+  - nuclear_receptor
+  - ion_channel

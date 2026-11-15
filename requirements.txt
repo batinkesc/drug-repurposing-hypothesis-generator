@@ -1,0 +1,63 @@
+# Pinned environment for the cross-family DTI study.
+#
+# Why these are pinned: RDKit's canonical atom ranking and canonical SMILES
+# output can differ between releases, and the tautomer canonicalisation code
+# has changed. This project uses canonical SMILES as the basis of
+# deduplication and of the R4b chemical split, so a different RDKit version
+# yields different splits and therefore different results. Data-source
+# versions (ChEMBL, UniProt) and model checkpoint revisions are pinned in
+# docs/versions.md.
+#
+# Python 3.12.10. Install with:
+#
+#   py -3.12 -m venv .venv
+#   .venv/Scripts/activate            # Windows
+#   pip install -r requirements.txt
+#
+# MMseqs2 is NO LONGER REQUIRED. The R3 split needs pairwise identity between
+# 565 target domains, which is 159,330 pairs -- small enough to align exactly
+# (biopython, below) in under a minute across the machine. MMseqs2's k-mer
+# prefilter saves nothing at that size and is a heuristic whose recall matters
+# precisely at the 0.40 identity cutoff, where a missed pair would leave a test
+# target similar to a training one. See K22 in docs/decisions.md.
+#
+# Hardware this was pinned for: single NVIDIA RTX 4050 Laptop, 6 GB VRAM.
+# That budget allows frozen ESM-2 650M inference in fp16 and partial
+# fine-tuning of ChemBERTa-2; it does not allow ESM-2 3B.
+
+# --- Cheminformatics -------------------------------------------------------
+rdkit==2024.3.5
+
+# --- Bioinformatics --------------------------------------------------------
+# Exact Smith-Waterman alignment for the R3 target split, replacing MMseqs2.
+biopython==1.84
+
+# --- Scientific stack ------------------------------------------------------
+numpy==1.26.4
+pandas==2.2.2
+scipy==1.13.1
+scikit-learn==1.5.1
+lightgbm==4.5.0
+pyarrow==16.1.0
+
+# --- Deep learning ---------------------------------------------------------
+# CUDA 12.4 build. The index URL is required: PyPI serves the CPU-only wheel
+# under the same version number.
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.4.1
+transformers==4.44.2
+tokenizers==0.19.1
+safetensors==0.4.4
+huggingface-hub==0.24.6
+
+# --- Plotting --------------------------------------------------------------
+matplotlib==3.9.0
+seaborn==0.13.2
+
+# --- Config, CLI, progress -------------------------------------------------
+PyYAML==6.0.1
+tqdm==4.66.4
+click==8.1.7
+
+# --- Testing ---------------------------------------------------------------
+pytest==8.2.2
