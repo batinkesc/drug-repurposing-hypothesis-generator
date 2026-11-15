@@ -31,17 +31,17 @@ Kesilecek yer burası ve kesmenin maliyeti bugün çok düşük.
 | 0 · Ortam ve veri kaynağı | ✅ | ChEMBL 37 (29 GB), sürüm + SHA-256 kayıtlı |
 | 1 · ChEMBL envanteri ve aile eşlemesi | ✅ | 5 aile, 1.078 hedef, sıfır aile çakışması |
 | 1b · Protein temsili kararı | ✅ | Bağlanma alanı, ölçümle gerekçelendirildi |
-| 2 · Veri çekme ve süzme | ✅ | 1.080.040 aktivite, düşürme tablosu |
+| 2 · Veri çekme ve süzme | ✅ | 739.699 aktivite (eşik 9, K56), düşürme tablosu |
 | 3 · Molekül standardizasyonu | ✅ | 487.220 benzersiz molekül (67 dk, 15 çekirdek) |
 | 4 · Veri seti kurulumu | ✅ | **283.353 hedef–bileşik çifti** |
 | 5 · Bölmeler ve kaçak denetimi | ✅ | 13 rejim × 5 tohum = 65 bölme dosyası |
-| 6 · Gömme çıkarımı | ⬜ | — |
+| 6 · Gömme çıkarımı | ✅ | 565×1280 protein, 190.339×384 molekül (K57) |
 | 7 · Taban çizgileri ve modeller | ⬜ | — |
 | 8 · Deneyler ve teşhisler | ⬜ | — |
 | 9 · Tez yazımı | ⬜ | — |
 
 **Kod:** 1.806 satır kütüphane (`src/dti/`), 2.497 satır script, 881 satır test.
-**86 test geçiyor.**
+**98 test geçiyor.**
 
 **Veri:** 29 GB ham ChEMBL, 478 MB ara dosya, 12 MB veri seti, 87 MB bölmeler.
 
@@ -103,7 +103,7 @@ Tahminler bu makine (RTX 4050, 6 GB) içindir ve **kabadır**.
 
 | İş | Tahmini süre | Zorunlu mu? |
 | --- | --- | --- |
-| Gömme çıkarımı (ESM-2 565 alan + ChemBERTa 190k molekül) | 2–3 saat | **Evet** |
+| ~~Gömme çıkarımı~~ | ~~2–3 saat~~ → **1,1 dakika, bitti** | ✅ |
 | B1/B2/B3 taban çizgileri × 13 rejim × 5 tohum | 1–2 saat | **Evet** |
 | M0 (ECFP4 + LightGBM) × 13 rejim × 5 tohum | 3–5 saat | **Evet** |
 | M1 (donuk gömmeler + sığ ağ) × 13 rejim × 5 tohum | 4–8 saat | **Evet** |
@@ -212,13 +212,16 @@ o titizlik iki kez gerçek hata yakaladı.
 
 ## 10. Durum notları
 
-- **Git:** depo başlatıldı ama **hiçbir commit yok.** Bir commit atılması
-  iyi olur (geri dönülebilirlik için), ama senin onayını bekliyorum.
+- **Git:** `master`, 4 commit, son `1f67354`. `v0-transfer-frozen` etiketi
+  transfer çalışmasının donduğu noktada (`4434ea5`). Çalışma ağacı temiz,
+  uzak depo yok (yalnız yerel).
 - **Tez şablonu:** henüz verilmedi. Geldiğinde yalnız metin taşınacak, tablolar
   script'lerden yeniden üretilebilir.
-- **Model checkpoint sürümleri:** Hugging Face commit hash'leri henüz
-  sabitlenmedi (`config/config.yaml` içinde `null`). Gömme çıkarımından önce
-  sabitlenmeli.
+- **Model checkpoint sürümleri:** sabitlendi (K37), `docs/versions.md`'de
+  revizyon + lisans tablosu var. **Açık kalan:**
+  `DeepChem/ChemBERTa-77M-MTR` deposunda beyan edilmiş lisans yok; ürün bu
+  modelle çıkarım yapıp türetilmiş veri dağıttığı için model kartına
+  "beyan edilmemiş" olarak yazılmalı (K38).
 - **Açık sorular:** `docs/decisions.md` sonundaki listede 3 madde var; biri
   R2'nin nasıl ele alınacağı (bkz. §4.1), biri iyon kanalı yardımcı
   altbirimleri, biri iyon kanalı ailesinin inceliği.

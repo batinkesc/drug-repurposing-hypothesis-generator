@@ -39,42 +39,68 @@ yenilik arttıkça nereye düşüyor.
 | 0 · Ortam ve veri kaynağı (ChEMBL 37, sürüm + SHA-256) | Bitti |
 | 1 · ChEMBL envanteri ve aile eşlemesi (5 aile, 1.078 hedef) | Bitti |
 | 1b · Protein temsili kararı (bağlanma alanı) | Bitti |
-| 2 · Veri çekme ve süzme (1.080.040 aktivite) | Bitti |
-| 3 · Molekül standardizasyonu (487.220 benzersiz molekül) | Bitti |
+| 2 · Veri çekme ve süzme (739.699 aktivite, eşik 9 — K56) | Bitti |
+| 3 · Molekül standardizasyonu (368.307 benzersiz molekül) | Bitti |
 | 4 · Veri seti kurulumu (**283.353 hedef–bileşik çifti**) | Bitti |
 | 5 · Bölmeler ve kaçak denetimi (13 rejim × 5 tohum = 65 dosya) | Bitti |
-| 6 · Gömme çıkarımı | **Başlamadı** |
-| 7 · Taban çizgileri ve modeller | Başlamadı |
+| 6 · Gömme çıkarımı (565×1280 protein, 190.339×384 molekül — K57) | Bitti |
+| 7 · Taban çizgileri ve modeller | **Sıradaki** |
 | 8 · Deneyler ve teşhisler | Başlamadı |
 | 9 · Uygulama ve tez | Başlamadı |
 
 **Veri seti:** 565 hedef, 190.339 molekül, 5 aile, pChEMBL ortanca 6,92.
-**Kod:** ~1.806 satır kütüphane (`src/dti/`), ~2.497 satır script, ~881 satır
-test — **86 test geçiyor**.
-**Disk:** 29 GB ham ChEMBL, 478 MB ara dosya, 12 MB veri seti, 87 MB bölmeler.
+**Kod:** ~2.050 satır kütüphane (`src/dti/`), ~2.730 satır script, ~1.000
+satır test — **98 test geçiyor**.
+**Disk:** 29 GB ham ChEMBL, 390 MB ara dosya, 12 MB veri seti, 87 MB bölmeler,
+285 MB gömme.
+**Git:** `master`, son commit `1f67354`, `v0-transfer-frozen` etiketi
+`4434ea5`'te. Çalışma ağacı temiz.
 
 ---
 
-## 2. İlk üç iş — başka hiçbir şeyden önce
+## 2. Nerede kaldık (16 Kasım 2026)
 
-**1. Commit at.** Depoda hiç commit yok. Kod, scriptler, testler, `docs/`
-içeri; veri `.gitignore`'a. Transfer çalışmasının durduğu noktayı
-`v0-transfer-frozen` etiketiyle işaretle. Git geçmişi aynı zamanda tezin "ne
-zaman ne yaptım" kaydı ve sonradan üretilemez.
+Devir notunun ilk üç işi **kapandı**:
 
-**2. Hugging Face kontrol noktası commit hash'lerini sabitle.**
-`config/config.yaml` içinde şu an `null`. Gömme çıkarımı bundan önce
-koşturulmaz — sabitlenmeden çıkarılan gömme bütün aşağı akışı tekrarlanamaz
-kılar (E1/K37).
+1. ✅ İlk commit `4434ea5` + `v0-transfer-frozen` etiketi.
+2. ✅ HF kontrol noktası hash'leri sabitlendi (K37). Lisans uyarısı:
+   `ChemBERTa-77M-MTR` deposunda **beyan edilmiş lisans yok**; model kartına
+   "MIT" değil "beyan edilmemiş" yazılmalı ve K38 kontrol listesinde açık
+   soru olarak duruyor.
+3. ✅ Güven skoru doğrulandı ve **9'a çekildi** (K56). ChEMBL'in kendi
+   `confidence_score_lookup` tablosundan: 8 homolog, 9 doğrudan atama.
+   Beklenmedik bulgu — eşik zaten fiilen 9'du, çünkü ChEMBL
+   `predicted_binding_domains`'i yalnız doğrudan atanmış deneyler için
+   hesaplıyor. Veri hattı yeniden koşturuldu, veri seti **birebir aynı**
+   kaldı, bölmeler geçerli.
 
-**3. Güven skoru 8 mi 9 mu, doğrula.** Yerel ChEMBL 37'de `confidence_score`
-dağılımını çıkar ve 8'in homolog tek-protein atamalarını içerip içermediğini
-kontrol et. Mevcut süzgeç ≥8 kullanıyor ve gerekçesi "deneyin tek bir proteine
-atandığı" diye yazılmış; ikincil kaynaklara göre 9 doğrudan, 8 homolog atama.
-Sonucu ve kararı `decisions.md`'ye yaz. **Veri hattı yeniden koşturulmadan önce
-karara bağlanmalı.**
+Ardından 6. aşama da bitti (K57): gömmeler diskte, 1,1 dakikada çıktı, hiçbir
+girdi kırpılmadı.
 
----
+### Sıradaki iş: 7. aşama, taban çizgileri
+
+`scripts/07_baselines.py` yok, yazılacak. Sıra:
+
+```
+B1 hedef ortalaması  →  B2 yalnız ligand  →  B3 yalnız protein  →  M0  →  M1
+                                                        → 12 ARALIK KAPISI
+```
+
+**Başlamadan önce okunacak iki not:**
+
+- **Taban çizgileri her rejimde yeniden fit edilir.** B1'i tüm veri üzerinde
+  hesaplayıp rejimler arasında yeniden kullanmak kaçaktır
+  (`config/config.yaml`, `models.baselines` yorumu).
+- **Girdi ölçeklerini standartlaştır.** Norm ortancaları kollar arasında
+  2,67–10,02 arasında değişiyor (K57). 384 boyutlu molekül vektörüyle 1280
+  boyutlu protein vektörü yan yana eklenecekse, standartlaştırma olmazsa
+  büyük normlu kol baskın gelir — bu bir mimari tercih değil, kaza olur.
+- **E6 havuzlama ablasyonu geri geldi** (K57): `mean` ve `cls` dizileri de
+  diskte. CLS, ECFP4 Tanimoto ile mean'in iki katı korele (0,437 vs 0,217),
+  ama bu "daha iyi" demek değil — seçim M1'in doğrulama kümesinde yapılacak.
+
+Gömmeler `.gitignore`'da ve 1,1 dakikada yeniden üretiliyor:
+`python scripts/06_extract_embeddings.py --force`.
 
 ## 3. Değişmez kurallar
 
@@ -153,12 +179,18 @@ biri `decisions.md`'de bir K kaydı.
 ## 5. Teknik iş sırası
 
 ```
-gömme çıkarımı (2–3 saat)
-  → B1/B2/B3 taban çizgileri (1–2 saat)
+gömme çıkarımı              ✅ BİTTİ (tahmin 2–3 saat, gerçek 1,1 dakika)
+  → B1/B2/B3 taban çizgileri (1–2 saat)        ← SIRADAKİ
   → M0: ECFP4 + LightGBM (3–5 saat)
   → M1: donuk gömmeler + sığ ağ (4–8 saat)
   → 12 ARALIK KAPISI
 ```
+
+Gömme çıkarımının tahminden iki mertebe hızlı çıkması, kalan tahminleri de
+yukarı yönlü şüpheli kılıyor: ChemBERTa-2 beklediğimden çok küçük (3 katman,
+384 boyut; "77M" eğitim kümesinin boyutu, modelin değil) ve M1'in başlığı
+önceden hesaplanmış gömmeler üzerinde çalıştığı için dil modeline hiç
+dokunmuyor. M1'in 65 koşusu saatler değil dakikalar sürebilir.
 
 **Kapı sorusu:** M1, B1–B3'ü ve M0'ı geçiyor mu?
 
@@ -230,6 +262,11 @@ Mevcut 86 testin yanına eklenirler.
 
 ## 9. Hatırlatma
 
-Tasarım tarafı kapandı. Buradan sonrası kağıt değil kod: commit, hash'ler,
-gömme çıkarımı, 12 Aralık kapısı. Yeni karar eklemek değil, mevcut kararları
-gerçekten uygulamak.
+Tasarım tarafı kapandı ve açılış işleri de bitti: commit, hash'ler, güven
+skoru kararı, gömme çıkarımı. Kalan tek şey 12 Aralık kapısına kadar olan
+modelleme zinciri — **taban çizgileri, M0, M1** — ve orada yeni karar
+eklemek değil, mevcut kararları gerçekten uygulamak gerekiyor.
+
+Kapıya kadarki en kritik tek madde: **taban çizgilerini atlamamak.** B1–B3
+en ucuz ve en belirleyici parça; onlar olmadan M1'in skoru yorumlanamaz ve
+12 Aralık kapısının sorusu ("M1, B1–B3'ü ve M0'ı geçiyor mu?") sorulamaz.
