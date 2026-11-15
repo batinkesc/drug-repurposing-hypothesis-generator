@@ -829,6 +829,103 @@ raporlanması ve her kaydın `confidence_score` alanının veri setinde taşınm
 ölçüm script'leri oturum çalışma alanında; sayılar bu kayıtta.
 
 
+---
+
+## K57 — Gömmeler çıkarıldı; CLS havuzlama mean'den güçlü çıktı
+
+**Ne yapıldı:** ChemBERTa-2 ve ESM-2 650M gömmeleri sabitlenmiş revizyonlarla
+bir kez çıkarılıp diske yazıldı (`scripts/06_extract_embeddings.py`).
+
+| Kol | Model | Girdi | Boyut | Süre | Kesme |
+| --- | --- | --- | --- | --- | --- |
+| Protein | `esm2_t33_650M_UR50D` @ `08e4846e5371` | 565 alan | 1280 | 0,4 dk | **0** |
+| Molekül | `ChemBERTa-77M-MTR` @ `66b895cab8ad` | 190.339 SMILES | 384 | 0,7 dk | **0** |
+
+Toplam 1,1 dakika — tahmin ettiğim 2–3 saatin çok altında. Azami token sayısı
+protein kolunda 588 (586 kalıntı + 2 özel), molekül kolunda 189; ikisi de
+sınırın altında, yani **hiçbir girdi kırpılmadı**.
+
+### Havuzlamada üç sessiz tuzak (hepsi teste bağlandı)
+
+Gömmeler bir kez yazılıp her model, her rejim ve her tohum tarafından okunduğu
+için buradaki bir hata hiçbir yerde çökmez — sadece bütün sayıları dizi
+uzunluğuyla ilişkili biçimde biraz yanlış yapar ve aşağı akışta tespit edilemez.
+
+1. **Maskesiz ortalama.** Dolgu pozisyonlarını ortalamaya katmak, bir molekülün
+   gömmesini toplu işindeki en uzun moleküle bağımlı kılar. Kısa girdiler en
+   çok bozulur, yani hasar kimyasal bir özellikle ilişkili olur. Her ortalama
+   maskeli.
+2. **Özel token'lar ortalamanın içinde.** ESM-2 diziyi `<cls>`/`<eos>`,
+   ChemBERTa `<s>`/`</s>` ile sarıyor. Bunları kalıntı ortalamasına katmak kısa
+   alanları uzunlardan daha fazla seyreltir — yine uzunlukla ilişkili bir
+   yanlılık, ve alan uzunluğu aileler arasında sistematik olarak farklı.
+   `mean` yalnız **içerik** token'larını ortalıyor ve bunları sabit konumlarla
+   değil tokenizer'ın kendi `special_tokens_mask`'iyle belirliyor.
+3. **`pooler_output`.** `AutoModel` her iki kontrol noktasına da bir pooler
+   başlığı ekliyor ve ikisinde de bu başlık **rastgele ilkleniyor** —
+   transformers yüklemede bunu söylüyor. `pooler_output` okunsaydı sonuç
+   dizinin rastgele bir izdüşümü olurdu: sonlu, doğru şekilde, farklı girdiler
+   için farklı. Yani tamamen normal görünen bir çöp. Her yerde
+   `last_hidden_state` okunuyor.
+
+Havuzlama float16 modelden çıkan değerleri **float32'ye alarak** hesaplıyor;
+birkaç yüz float16 değeri toplamak görünür hata biriktiriyor ve diske yazılıp
+her yerde yeniden kullanılan sayı bu.
+
+### Sinyal kontrolü — birim testlerin kanıtlayamadığı şey
+
+Birim testler havuzlama aritmetiğinin doğru olduğunu kanıtlıyor; diskteki
+dizilerin beklediğimiz modelden geldiğini ya da temsilin çökmediğini
+kanıtlayamıyor. Ölçülenler:
+
+- **Çökme yok.** 2.000 rastgele molekülün 2.000'i farklı satır; kosinüs
+  benzerliği ortanca 0,889, p5 0,666, p95 0,947.
+- **Protein kolu aile yapısını kurtarıyor.** Aile içi kosinüs ortanca 0,871,
+  aileler arası 0,782 (fark +0,089, Mann-Whitney p≈0). **Aile hiçbir zaman
+  modele girdi olmadı** — bu, temsilin özelliği, etiketlerin değil.
+- Aile içi benzerlik aileye göre çok değişiyor: nükleer reseptör 0,963,
+  kinaz 0,890, proteaz 0,873, GPCR 0,852, **iyon kanalı 0,709**. İyon
+  kanallarının yapısal olarak en heterojen sınıf olması, "yardımcı altbirimler
+  ailede kalmalı mı" açık sorusuyla doğrudan ilgili.
+
+### Beklenmedik bulgu: CLS, mean'in iki katı kimyasal sinyal taşıyor
+
+Molekül gömmesi kosinüsünün ECFP4 Tanimoto ile Spearman korelasyonu:
+
+| Havuzlama | Spearman(Tanimoto, kosinüs) |
+| --- | --- |
+| `mean` | 0,217 |
+| **`cls`** | **0,437** |
+
+Aynı molekülde mean ile cls arasındaki kosinüs 0,243, yani bunlar gerçekten
+farklı temsiller. Config `pooling: "mean"` diyor; bu proxy'de CLS iki kat
+güçlü.
+
+**Ama bu "CLS daha iyi" demek değil ve öyle sunulmamalı.** ECFP4 Tanimoto bir
+vekil ölçüt; parmak iziyle daha çok korele olan bir temsil sadece daha
+*parmak izi gibi* olabilir — ki o zaten M0'ın işi. Asıl soru hangisinin
+pChEMBL'i daha iyi tahmin ettiği ve bunun cevabı başlığı eğitmek.
+
+**Karar:** E6 havuzlama ablasyonu, v2'de kesilen ablasyonların aksine **geri
+geliyor** — çünkü maliyeti yok. İki dizi de diskte (aynı ileri geçişten
+çıktılar, ~150 MB fazladan yer), başlık aynı, tek değişen girdi dizisi. M1
+eğitilirken iki havuzlama da koşulur ve seçim **doğrulama kümesinde** yapılır.
+v2'deki kesme gerekçesi hesap maliyetiydi; burada hesap maliyeti dakikalar.
+
+### 7. aşama için not: ölçek farkı
+
+Norm ortancaları: `molecule_mean` 9,67, `molecule_cls` 2,67,
+`protein_mean` 5,32, `protein_cls` 10,02. 384 boyutlu molekül vektörüyle 1280
+boyutlu protein vektörü yan yana eklenecekse, başlığın girdilerini
+standartlaştırması gerekiyor — yoksa büyük normlu kol baskın gelir ve bu bir
+mimari tercih değil, kaza olur.
+
+**Nerede / Where:** `src/dti/embeddings.py`, `tests/test_embeddings.py`
+(12 test), `scripts/06_extract_embeddings.py`,
+`data/embeddings/manifest.json`, `config/config.yaml`
+(`models.m1_frozen_lm.batch_size_embedding_chem`)
+
+
 ## Açık sorular / Open questions
 
 - **Tez formatı.** Bölümün zorunlu şablonu henüz verilmedi. Geldiğinde K5

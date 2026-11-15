@@ -283,9 +283,20 @@ models:
     prot_revision: "08e4846e537177426273712802403f7ba8261b6c"
     prot_model_small: "facebook/esm2_t12_35M_UR50D"   # ablation only
     prot_model_small_revision: "6fbf070e65b0b7291e7bbcd451118c216cff79d8"
-    pooling: "mean"                # ablation: mean | cls
+    # `mean` is the representation the models use. BOTH are nevertheless
+    # written to disk, because they come out of the same forward pass: storing
+    # `cls` as well costs ~150 MB and zero extra compute, while recovering it
+    # later would mean re-running the whole extraction. The ablation is cut
+    # (v2); this only keeps it cheap if it ever comes back.
+    pooling: "mean"                # mean | cls -- both extracted, mean used
     dtype: "float16"               # 6 GB VRAM budget
-    batch_size_embedding: 4
+    # Two batch sizes, because one number cannot fit both towers: ESM-2 650M is
+    # 33 layers at 1280 hidden over sequences up to 586 residues, ChemBERTa-2 is
+    # 3 layers at 384 hidden over ~55-character SMILES. Masked pooling makes the
+    # result independent of batching (tests/test_embeddings.py), so these are
+    # throughput knobs only -- they cannot change a number.
+    batch_size_embedding: 4        # protein tower
+    batch_size_embedding_chem: 256 # molecule tower
     head:
       combine: "concat"            # ablation: concat | hadamard | both
       hidden_sizes: [512, 256]
