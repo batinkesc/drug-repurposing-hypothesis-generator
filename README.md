@@ -167,9 +167,12 @@ kullanılabilir; ESM-2 3B ve ESM-2 ince ayarı kapsam dışı. Mimarinin donuk g
 
 ## Lisans / Licence
 
-Kod [MIT](LICENSE) ile lisanslı. **Veri MIT kapsamında değil** — aşağıya bakın.
+Kod [MIT](LICENSE) ile lisanslı. **Veri MIT kapsamında değil** — ChEMBL
+CC BY-SA 3.0 (atıf + share-alike) ve model kontrol noktalarının lisansları
+[`NOTICE.md`](NOTICE.md) içinde.
 
-Code is [MIT](LICENSE) licensed. The data is NOT; see below.
+Code is [MIT](LICENSE). The data is NOT: see [`NOTICE.md`](NOTICE.md) for
+ChEMBL's CC BY-SA 3.0 terms and the model checkpoint licences.
 
 ## Veri kaynağı, lisans ve atıf / Data, licence and attribution
 
