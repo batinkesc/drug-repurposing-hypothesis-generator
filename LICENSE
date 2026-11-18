@@ -1,0 +1,45 @@
+MIT License
+
+Copyright (c) 2026 Batın Kesici
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+This licence covers the CODE in this repository.
+
+It does NOT cover the data the code downloads, nor any data derived from it.
+This repository ships no data; `scripts/00_download_chembl.py` fetches it from
+the source. If you redistribute data derived from ChEMBL, the terms below
+apply instead, and they are not MIT:
+
+  ChEMBL (EMBL-EBI) is licensed CC BY-SA 3.0
+  https://creativecommons.org/licenses/by-sa/3.0/
+  Attribution is required, and the share-alike clause requires you to grant
+  the same redistribution rights downstream.
+
+Model checkpoints carry their own licences, pinned by commit hash in
+docs/versions.md:
+
+  facebook/esm2_t33_650M_UR50D   MIT
+  facebook/esm2_t12_35M_UR50D    MIT
+  DeepChem/ChemBERTa-77M-MTR     no licence declared on the Hub
+
+See README.md and docs/versions.md for the full attribution and version
+record.

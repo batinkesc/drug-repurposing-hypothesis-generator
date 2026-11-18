@@ -165,6 +165,12 @@ kullanılabilir; ESM-2 3B ve ESM-2 ince ayarı kapsam dışı. Mimarinin donuk g
 
 ---
 
+## Lisans / Licence
+
+Kod [MIT](LICENSE) ile lisanslı. **Veri MIT kapsamında değil** — aşağıya bakın.
+
+Code is [MIT](LICENSE) licensed. The data is NOT; see below.
+
 ## Veri kaynağı, lisans ve atıf / Data, licence and attribution
 
 Bu depo **veri içermez**; veri `scripts/00_download_chembl.py` ile kaynağından
